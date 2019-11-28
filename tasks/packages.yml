@@ -1,0 +1,14 @@
+---
+
+- name: Install | system packages
+  package:
+    name: "{{ item }}"
+  loop: "{{ system_packages }}"
+  environment: '{{ proxy_env | default({}) }}'
+
+- name: Install | PostgreSQL packages
+  package:
+    name: "{{ item }}"
+  loop: "{{ postgresql_packages }}"
+
+

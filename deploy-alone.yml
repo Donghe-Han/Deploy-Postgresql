@@ -1,0 +1,76 @@
+---
+
+- name: Deploy PostgreSQL alone
+  hosts: master
+  become: true
+  become_method: sudo
+  any_errors_fatal: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+
+
+  pre_tasks:
+    - import_tasks: tasks/check_system.yml
+
+    - import_tasks: tasks/add-repository.yml
+
+    - import_tasks: tasks/packages.yml
+      tags: [ install_packages ]
+
+    - import_tasks: tasks/sudo.yml
+      tags: [ sudo, postgres_sudo ]
+
+  roles:
+    - role: ansible-role-firewall
+      tags: firewall
+
+  tasks:
+    - meta: flush_handlers
+
+    - import_tasks: tasks/pg_init.yml
+
+    - name: Add superuser
+      postgresql_user:
+        db: postgres
+        name: "{{ superuser_username }}"
+        password: "{{ superuser_password }}"
+        encrypted: yes
+        role_attr_flags: "SUPERUSER"
+        login_unix_socket: "{{ postgresql_unix_socket_dir }}"
+        port: "{{ postgresql_port }}"
+        state: present
+      become: yes
+      become_user: postgres
+
+    - name: Create superuser databases
+      become: yes
+      become_user: postgres
+      postgresql_db:
+        name: "{{ superuser_username }}"
+        owner: "{{ superuser_username }}"
+        login_unix_socket: "{{ postgresql_unix_socket_dir }}"
+        port: "{{ postgresql_port }}"
+        template: "postgres"
+        state: present
+
+    - name: Add config in pg_hba.conf
+      become_user: postgres
+      lineinfile:
+        state: present
+        dest: "{{ postgresql_data_dir }}/pg_hba.conf"
+        line: 'host    all             all             0.0.0.0/0               md5'
+        insertafter: EOF
+
+    - name: Add postgres config directives
+      become_user: postgres
+      lineinfile:
+        dest: "{{ postgresql_data_dir }}/postgresql.conf"
+        line: "{{ item }}"
+      with_items:
+        - "{{ postgres_var }}"
+
+    - name: restart postgresql
+      systemd:
+        name: "postgresql-{{postgresql_version}}"
+        state: restarted

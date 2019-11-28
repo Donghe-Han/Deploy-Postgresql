@@ -1,0 +1,30 @@
+---
+
+
+- name: Prepare PostgreSQL | check that data directory 
+  stat:
+    path: "{{ postgresql_data_dir }}/PG_VERSION"
+  register: pgdata_initialized
+
+- name: Prepare PostgreSQL | PostgreSQL init
+  become: yes
+  become_user: postgres
+  command: "{{postgresql_bin_dir}}/initdb -D {{ postgresql_data_dir }}"
+  ignore_errors: yes
+
+- name: Prepare PostgreSQL | check PostgreSQL service is started
+  systemd:
+    name: "postgresql-{{postgresql_version}}"
+    state: started
+  ignore_errors: yes
+
+- name: Prepare PostgreSQL | check PostgreSQL is accepting connections
+  become: yes
+  become_user: postgres
+  command: "{{ postgresql_bin_dir }}/pg_isready -p {{ postgresql_port }}"
+  register: pg_isready_result
+  until: pg_isready_result.rc == 0
+  retries: 30
+  delay: 10
+  ignore_errors: no
+

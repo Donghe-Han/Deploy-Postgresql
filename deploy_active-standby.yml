@@ -1,0 +1,52 @@
+---
+
+- name: Deploy PostgreSQL Active-Standby
+  hosts: postgres_cluster
+  become: true
+  become_method: sudo
+  any_errors_fatal: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+
+  pre_tasks:
+    - import_tasks: tasks/check_system.yml
+
+    - import_tasks: tasks/add-repository.yml
+
+    - import_tasks: tasks/packages.yml
+
+    - import_tasks: tasks/sudo.yml
+
+  roles:
+    - role: ansible-role-firewall
+      tags: firewall
+
+  tasks:
+    - meta: flush_handlers
+
+- name: Set Active Node
+  hosts: postgres_cluster[0]
+  become: true
+  become_method: sudo
+  any_errors_fatal: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - import_tasks: tasks/pg_init.yml
+    - import_tasks: tasks/master.yml
+
+- name: Set Standby node
+  hosts: postgres_cluster[1]
+  become: true
+  become_method: sudo
+  any_errors_fatal: true
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+
+    - import_tasks: tasks/slave.yml

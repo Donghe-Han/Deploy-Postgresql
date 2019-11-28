@@ -1,0 +1,28 @@
+---
+
+- name: Base Backup
+  become: yes
+  become_user: postgres
+  shell: PGPASSWORD="{{replication_password}}" pg_basebackup -h {{ master_ip }} -D {{ postgresql_data_dir }} -U {{ replication_username}} -v -w
+
+- name: Add postgres config directives
+  become_user: postgres
+  lineinfile:
+    dest: "{{ postgresql_data_dir }}/postgresql.conf"
+    line: "{{ item }}"
+  with_items:
+    - "{{ postgres_slave_vars }}"
+
+
+- name: generate recovery.conf
+  template:
+    src: templates/recovery.conf.j2
+    dest: "{{ postgresql_conf_dir }}/recovery.conf"
+    owner: postgres
+    group: postgres
+    mode: 0640
+
+- name: restart postgresql
+  systemd:
+    name: "postgresql-{{postgresql_version}}"
+    state: restarted

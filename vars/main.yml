@@ -1,0 +1,129 @@
+---
+
+# host variables
+
+master_ip: "{{active_ip}}"
+replica_ip: "{{standby_ip}}"
+postgresql_version: "{{pg_version}}"    #可选项10或11
+superuser_username: "{{superuser_user}}"
+superuser_password: "{{superuser_pass}}" # please change password
+replication_username: "replicator"
+replication_password: "replicator-pass" # please change password
+
+
+postgres_vars:
+ - listen_addresses = '*'
+ - port = 5432
+ - wal_level = replica
+ - max_wal_senders = 2
+ - wal_keep_segments = 32
+ - wal_sender_timeout =60s
+ - hot_standby = on
+ - wal_keep_segments = 20
+ - max_wal_size = 1GB
+ - max_connections =100
+
+
+postgres_var:
+ - listen_addresses = '*'
+
+postgres_slave_vars:
+ - listen_addresses = '*'
+ - port = 5432
+ - wal_level = minimal
+ - max_wal_senders = 0
+ - wal_keep_segments = 0
+ - max_connections = 1000
+ - synchronous_commit = off
+ - hot_standby = on
+ - max_standby_streaming_delay = 30
+ - wal_receiver_status_interval = 1s
+ - hot_standby_feedback = on
+
+recovery_vars:
+ - standby_mode = on
+ - primary_conninfo = 'host={{master_ip}} port=5432 user={{ replication_username }} password={{ replication_password }}'
+ - recovery_target_timeline = 'latest'
+# 1. yum  -y install python-pip
+#2. pip install psycopg2-binary
+synchronous_mode: 'false'  # or 'true' for enable synchronous database replication
+
+# PostgreSQL variables
+postgresql_port: "5432"
+postgresql_encoding: "UTF8"       # for bootstrap only (initdb)
+postgresql_locale: "en_US.UTF-8"  # for bootstrap only (initdb)
+postgresql_data_checksums: 'true' # for bootstrap only (initdb)
+
+
+# System variables
+ntp_enabled: 'false' # specify 'true' if you want to install and configure the ntp service
+ntp_servers: []
+#  - "10.128.64.44"
+#  - "10.128.64.45"
+
+timezone: []
+#timezone: "Europe/Moscow"
+
+locales:
+  - { language_country: "en_US", encoding: "UTF-8" }
+  - { language_country: "ru_RU", encoding: "UTF-8" }
+#  - { language_country: "", encoding: "" }
+
+disable_thp: 'true' # or 'false'
+# Max open file limit
+set_limits: 'true' # or 'false'
+limits_user: "postgres"
+soft_nofile: 65536
+hard_nofile: 200000
+
+# SSH Keys
+enable_SSH_Key_based_authentication: 'true' # or 'false'
+ssh_key_user: "postgres"
+ssh_key_state: "present"
+ssh_known_hosts: "{{ groups['postgres_cluster'] }}"
+
+firewall_enabled_at_boot: true
+firewall_allowed_tcp_ports:
+  - "{{ ansible_ssh_port }}"
+  - "{{ postgresql_port }}"
+firewall_additional_rules:
+  - "iptables -p vrrp -A INPUT -j ACCEPT"  # Keepalived (vrrp)
+  - "iptables -p vrrp -A OUTPUT -j ACCEPT" # Keepalived (vrrp)
+ # disable firewalld (installed by default on RHEL/CentOS) or ufw (installed by default on Ubuntu)
+firewall_disable_firewalld: true\
+firewall_disable_ufw: true
+
+# PostgreSQL variables
+postgresql_cluster_name: "data"
+postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/{{ postgresql_cluster_name }}"
+postgresql_conf_dir: "{{ postgresql_data_dir }}"
+postgresql_bin_dir: "/usr/pgsql-{{ postgresql_version }}/bin"
+postgresql_log_dir: "/var/log/postgresql"
+postgresql_unix_socket_dir: "/var/run/postgresql"
+postgresql_pgpass: /var/lib/pgsql/.pgpass
+postgresql_version_terse: "{{ postgresql_version | replace('.', '') }}"
+# Repository
+yum_repository: []
+#  - name: "repo name"
+#    description: "repo description"
+#    baseurl: "https://my-repo.url"
+#    gpgkey: "https://my-repo-key.url"
+#    gpgcheck: "yes"
+
+install_epel_repo: 'true' # or 'false' (installed from the package "epel-release-latest-7.noarch.rpm" tasks/add-repository.yml)
+install_postgresql_repo: 'true' # or 'false' (installed from the package "pgdg-redhat-repo-latest.noarch.rpm" tasks/add-repository.yml)
+
+system_packages:
+  - python-psycopg2
+  - iptables
+
+postgresql_packages:
+  - postgresql{{ postgresql_version_terse }}
+  - postgresql{{ postgresql_version_terse }}-server
+  - postgresql{{ postgresql_version_terse }}-contrib
+  - postgresql{{ postgresql_version_terse }}-devel
+  - postgresql{{ postgresql_version_terse }}-libs
+#  - pg_repack{{ postgresql_version_terse }}
+
+installation_method: "repo" #(default)"repo" or "file"
+

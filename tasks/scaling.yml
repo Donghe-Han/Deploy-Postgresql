@@ -1,0 +1,21 @@
+---
+
+- name: Create the file system on the block device
+  filesystem:
+    fstype: xfs
+    dev: "/dev/vdb/"
+    force: yes
+  become: yes
+  become_user: postgres
+  ignore_errors: yes
+
+- name: Set the mount
+  become: yes
+  become_user: postgres
+  mount:
+    name: "{{ postgresql_data_dir }}"
+    src: "/dev/vdb/"
+    fstype: xfs
+    state: mounted
+    opts: rw
+  ignore_errors: yes
